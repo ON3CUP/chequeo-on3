@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ON3 Cup - Validador v4.2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #050505; color: #f3f4f6; }
+        .input-on3 { background: transparent; border: none; color: white; font-weight: bold; text-transform: uppercase; width: 100%; font-size: 0.75rem; }
+        .input-on3:focus { outline: none; }
+        .perk-card, .addon-card { background: #0a0a0a; border: 1px solid #1f2937; display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 12px; min-height: 60px; position: relative; }
+        .perk-icon, .addon-icon { width: 44px; height: 44px; object-fit: contain; display: block; }
+        .icon-empty { opacity: 0; }
+        .dropdown-results { position: absolute; top: 100%; left: 0; right: 0; background: #111; border: 1px solid #333; z-index: 50; max-height: 200px; overflow-y: auto; border-radius: 0 0 12px 12px; display: none; }
+        .result-item { display: flex; align-items: center; gap: 10px; padding: 8px; cursor: pointer; transition: 0.2s; }
+        .result-item:hover { background: #222; }
+        .result-img { width: 30px; height: 30px; object-fit: contain; }
+        .killer-portrait-container { background: #0a0a0a; border: 1px solid #1f2937; border-radius: 20px; overflow: hidden; width: 100%; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; position: relative; }
+        .killer-portrait { width: 100%; height: 100%; object-fit: cover; display: none; transition: 0.3s; }
+        .killer-placeholder { color: #333; font-weight: 900; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 2px; text-align: center; padding: 20px; }
+
+        #addon-menu { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 500px; background: #0f0f0f; border: 2px solid #1f2937; border-radius: 24px; z-index: 100; display: none; padding: 20px; box-shadow: 0 0 50px rgba(0,0,0,0.8); }
+        .addon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 10px; max-height: 400px; overflow-y: auto; padding: 10px; }
+        .addon-item { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px; border-radius: 12px; transition: 0.2s; cursor: pointer; }
+        .addon-item:hover { background: #1e293b; }
+        .addon-item img { width: 50px; height: 50px; object-fit: contain; }
+        .addon-item span { font-size: 8px; font-weight: 800; text-align: center; text-transform: uppercase; color: #94a3b8; }
+        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 90; display: none; backdrop-filter: blur(4px); }
+        .addon-card { cursor: pointer; transition: 0.2s; }
+        .addon-card:hover { border-color: #ef4444; }
+    </style>
+</head>
+<body class="p-4 md:p-10">
+
+    <div id="overlay" onclick="closeAddonMenu()"></div>
+    <div id="addon-menu">
+        <div class="flex justify-between items-center mb-4 px-2">
+            <h3 class="text-xs font-black text-red-600 uppercase tracking-widest">Seleccionar Accesorio</h3>
+            <button onclick="closeAddonMenu()" class="text-gray-500 hover:text-white font-bold">✕</button>
+        </div>
+        <div class="addon-grid" id="addon-grid-content"></div>
+    </div>
+
+    <header class="flex flex-col md:flex-row justify-between items-center mb-10 gap-4">
+        <div>
+            <h1 class="text-6xl font-black italic uppercase tracking-tighter text-white">ON3 <span class="text-red-600">CHECKER</span></h1>
+            <p class="text-[10px] font-bold text-gray-500 tracking-[0.3em] uppercase">Tournament Engine v4.2</p>
+        </div>
+        <button onclick="resetBuild()" class="bg-red-600 hover:bg-red-700 text-white text-[10px] font-black uppercase px-6 py-3 rounded-full transition-all tracking-widest shadow-lg shadow-red-900/20">
+            BORRAR TODO
+        </button>
+    </header>
+
+    <div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="space-y-4">
+            <h2 class="text-xs font-black uppercase text-red-500 border-l-4 border-red-600 pl-3">1. ASESINO</h2>
+            <div class="killer-portrait-container mb-4">
+                <span id="killer-text" class="killer-placeholder">Selecciona Personaje</span>
+                <img id="killer-img" src="" class="killer-portrait">
+            </div>
+            <select id="killer-select" class="w-full bg-[#0a0a0a] border border-gray-800 p-4 rounded-xl font-bold text-white uppercase text-sm focus:border-red-600 outline-none transition-colors" onchange="updateKillerPortrait(); validate();">
+                <option value="">SELECCIONAR ASESINO...</option>
+            </select>
+        </div>
+
+        <div class="lg:col-span-2 space-y-6">
+            <h2 class="text-xs font-black uppercase text-blue-500 border-l-4 border-blue-600 pl-3">2. CONFIGURACIÓN DE BUILD</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="space-y-3">
+                    <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest">Habilidades</p>
+                    <div class="perk-card"><img id="img-p1" src="" class="perk-icon icon-empty"><input type="text" id="p1" placeholder="BUSCAR PERK..." class="input-on3" autocomplete="off" oninput="showResults(this, 'perk')"><div class="dropdown-results" id="res-p1"></div></div>
+                    <div class="perk-card"><img id="img-p2" src="" class="perk-icon icon-empty"><input type="text" id="p2" placeholder="BUSCAR PERK..." class="input-on3" autocomplete="off" oninput="showResults(this, 'perk')"><div class="dropdown-results" id="res-p2"></div></div>
+                    <div class="perk-card"><img id="img-p3" src="" class="perk-icon icon-empty"><input type="text" id="p3" placeholder="BUSCAR PERK..." class="input-on3" autocomplete="off" oninput="showResults(this, 'perk')"><div class="dropdown-results" id="res-p3"></div></div>
+                    <div class="perk-card"><img id="img-p4" src="" class="perk-icon icon-empty"><input type="text" id="p4" placeholder="BUSCAR PERK..." class="input-on3" autocomplete="off" oninput="showResults(this, 'perk')"><div class="dropdown-results" id="res-p4"></div></div>
+                </div>
+                <div class="space-y-3">
+                    <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest">Accesorios (Click para elegir)</p>
+                    <div class="addon-card" onclick="openAddonMenu('a1')"><img id="img-a1" src="" class="addon-icon icon-empty"><input type="text" id="a1" placeholder="ELEGIR..." class="input-on3" readonly></div>
+                    <div class="addon-card" onclick="openAddonMenu('a2')"><img id="img-a2" src="" class="addon-icon icon-empty"><input type="text" id="a2" placeholder="ELEGIR..." class="input-on3" readonly></div>
+                </div>
+            </div>
+
+            <div id="status-card" class="mt-6 p-8 bg-[#080808] border-2 border-gray-900 rounded-3xl">
+                <div id="badge" class="inline-block px-4 py-1 rounded-full text-[9px] font-black uppercase bg-gray-800 mb-2 text-white">Estado</div>
+                <div id="msg" class="text-sm font-bold uppercase italic text-gray-500">Completa la build para validar.</div>
+                <div id="error-list" class="mt-4 space-y-2"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const killerData = {
+            enfermera: { name: "ENFERMERA", tier: 1 }, deterioro: { name: "DETERIORO", tier: 1 }, pueblerino: { name: "EL PUEBLERINO", tier: 1 },
+            dark_lord: { name: "THE DARK LORD", tier: 2 }, ghoul: { name: "GHOUL", tier: 2 }, krasue: { name: "KRASUE", tier: 2 }, singularidad: { name: "SINGULARIDAD", tier: 2 }, espiritu: { name: "ESPÍRITU", tier: 2 },
+            animatronico: { name: "ANIMATRONICO", tier: 3 }, artista: { name: "ARTISTA", tier: 3 }, cenobita: { name: "CENOBITA", tier: 3 }, payaso: { name: "PAYASO", tier: 3 }, arponero: { name: "ARPONERO", tier: 3 }, demogorgon: { name: "DEMOGORGON", tier: 3 }, draga: { name: "DRAGA", tier: 3 }, pesadilla: { name: "PESADILLA", tier: 3 }, good_guy: { name: "GOOD GUY", tier: 3 }, adiestradora: { name: "ADIESTRADORA CANINA", tier: 3 }, cazadora: { name: "CAZADORA", tier: 3 }, caballero: { name: "CABALLERO", tier: 3 }, cerebro: { name: "CEREBRO", tier: 3 }, oni: { name: "ONI", tier: 3 }, plaga: { name: "PLAGA", tier: 3 }, verdugo: { name: "VERDUGO", tier: 3 }, traicionero: { name: "TRAICIONERO", tier: 3 }, mellizos: { name: "MELLIZOS", tier: 3 }, desconocido: { name: "DESCONOCIDO", tier: 3 }, liche: { name: "LICHE", tier: 3 }, xenomorfo: { name: "XENOMORFO", tier: 3 }, primero: { name: "PRIMERO", tier: 3 },
+            doctor: { name: "DOCTOR", tier: 4 }, ghostface: { name: "GHOSTFACE", tier: 4 }, legion: { name: "LEGIÓN", tier: 4 }, myers: { name: "MYERS", tier: 4 }, nemesis: { name: "NÉMESIS", tier: 4 }, onryo: { name: "ONRYO", tier: 4 }, cerda: { name: "CERDA", tier: 4 }, comerciante: { name: "COMERCIANTE", tier: 4 }, espectro: { name: "ESPECTRO", tier: 4 },
+            trampero: { name: "TRAMPERO", tier: 5 }, bruja: { name: "BRUJA", tier: 5 }, canibal: { name: "EL CANIBAL", tier: 5 }
+        };
+
+        const globalBanned = ["Instinto Alienígena", "Hijo de la Luz", "Percepción Activada", "Barbacoa y Chile", "Bestia de Prey", "Murmullo amargo", "Golpe de Gracia", "Arrogancia tenebrosa", "Oscuridad Expuesta", "Interruptor del Hombre Muerto", "Candado", "Disolución", "Dominación", "Duda impuesta", "Unidos eternamente", "Amigos para siempre", "Veda abierta", "Oído para la maquinaria", "Limitaciones genéticas", "Acogida nefasta", "Avería", "Empleo disponible", "Maleficio: favor de sangre", "Maleficio: control de masas", "Maleficio: enfréntate a la oscuridad", "Maleficio: tierra embrujada", "Maleficio: mente colmena", "Maleficio: obertura del mal", "Maleficio: pentimento", "Maleficio: represalias", "Maleficio: la emoción de la caza", "Soberbia", "Codicia humana", "Noqueo", "Toque lánguido", "Acecho letal", "Influencia", "Aprendizaje de máquina", "Sin descanso", "Nadie es libre", "Sin escondite", "Miedo fantasmal", "Jugar con la comida", "Depredación", "Voraz", "Gancho flagelante: oleada de ira", "Gancho flagelante: brújula cerrada", "Gancho flagelante: santuario monstruoso", "Proyecto secreto", "Deslumbrado", "Anatomía superior", "Terminal", "¡PLAF!", "Arma definitiva", "Separación", "Imprevisto", "Mirada errante", "Sintonía con la urdimbre", "Tácticas de zanshin", "Nadie escapa de la muerte"];
+        const tierBanned = { 1: ["Agitación", "Acechador de ciervos", "Discordancia", "Sin salida", "Gancho flagelante: Dolor retumbante", "Espías de las sombras"], 3: ["Apretón de Hierro", "Furia Ciega", "Toma una Decisión", "Supervisión"], 4: [], 5: [] };
+        const killerSpecificBans = { dark_lord: ["Toma una Decisión", "Gancho flagelante: Dolor retumbante"], ghoul: ["Toma una Decisión", "Gancho flagelante: Dolor retumbante"], espiritu: ["Toma una Decisión", "Gancho flagelante: Dolor retumbante"], krasue: ["Toma una Decisión"], singularidad: ["Toma una Decisión"] };
+        const forbiddenCombos = [ { perks: ["Resistente", "Furia Espiritual"], name: "PERSECUCIÓN" }, { perks: ["Némesis", "Rencor"], name: "OBSESIÓN" }, { perks: ["Maleficio: Nadie escapa de la muerte", "Sin salida"], name: "ENDGAME" }, { perks: ["Maleficio: Ruina", "Maleficio: Destino desdichado"], name: "REGRESIÓN" } ];
+        const tierForbiddenCombos = { 1: [{ perks: ["Pim, Pam, Pum", "Erupción"], name: "REGRESIÓN T1" }], 2: [], 3: [], 4: [], 5: [] };
+        const killerSpecificCombos = { espiritu: [{ perks: ["Pim, Pam, Pum", "Erupción"], name: "REGRESIÓN (ESPÍRITU)" }] };
+
+        const allGamePerks = ["Retrasa el reloj", "Proyecto secreto", "Maleficio: mente colmena", "Agitación", "Fuerza brutal", "Presencia perturbadora", "Sabueso de sangre", "Depredación", "Hijo de las sombras", "Resistente", "Hijo de la luz", "Manitas", "Tanatofobia", "Vocación de enfermera", "Aliento", "Lo mejor para el final", "Luz que agoniza", "Jugar con la comida", "Maleficio: devoradora de esperanza", "Maleficio: ruina", "Maleficio: el tercer sello", "Presencia abrumadora", "Monitorización y abuso", "Sobrecarga", "Barbacoa y chile", "Noqueo", "Muerte de franklin", "Bestia de prey", "Maleficio: nana de cazadora", "Instinto territorial", "Guardián de sangre", "Enfurecimiento", "Recuérdame", "Gancho flagelante: truco del verdugo", "Supervisión", "Toma una decisión", "Coulrofobia", "Pim, pam, pum", "Desconcierto", "Furia espiritual", "Maleficio: tierra embrujada", "Rencor", "Discordancia", "Furia ciega", "Doncella de hierro", "Intervención corrupta", "Terror contagioso", "Devoción oscura", "Soy todo oídos", "Temblores trepidantes", "Persecución furtiva", "Sobretensión", "Quebrantamentes", "Restricción cruel", "Tácticas de zanshin", "Eco sangriento", "Némesis", "Oído para la maquinaria", "Interruptor del hombre muerto", "Maleficio: represalias", "Imposición de penitencia", "Rastro de tormento", "Vínculo mortal", "Agarre del dragón", "Maleficio: inmortal", "Maleficio: favor de sangre", "Acaparadora", "Opresión", "Golpe de gracia", "Deslumbrado", "Maleficio: control de masas", "Sin escapatoria", "Acecho letal", "Histeria", "Erupción", "Acogida nefasta", "Gancho flagelante: dolor retumbante", "Maleficio: pentimento", "Gancho flagelante: oleada de ira", "Salmuera", "Tormenta vil", "Disolución", "Oscuridad expuesta", "Toque séptico", "Anatomía superior", "Percepción activa", "Terminal", "Sin escondite", "Maleficio: enfréntate a la oscuridad", "Soberbia", "Veda abierta", "¡PLAF!", "Influencia", "Limitaciones genéticas", "Duda impuesta", "Aprendizaje de máquina", "Arma definitiva", "Brutalidad veloz", "Instinto alienígena", "Maleficio: dos pueden jugar", "Amigos para siempre", "Pilas incluidas", "Separación", "Imprevisto", "Incompleto", "Sintonía con la urdimbre", "Toque lánguido", "Arrogancia tenebrosa", "Maleficio: destino desdichado", "Codicia humana", "Dominación", "Trueno ensordecedor", "Gancho flagelante: brújula cerrada", "Sin descanso", "Maleficio: solo hay miseria", "Unidos eternamente", "Nadie es libre", "Empleo disponible", "Miedo fantasmal", "Avería", "Voraz", "Mirada errante", "Maleficio: obertura del mal", "Acechador de ciervos", "Apretón de hierro", "Carnicero chapucero", "Desasosiego", "Esperanza destruida", "Espías de la sombra", "Gancho flagelante: heridas supurantes", "Gancho flagelante: santuario monstruoso", "Implacable", "Insidia", "Maleficio: la emoción de la caza", "Maleficio: nadie escapa de la muerte", "Maleficio: títere de la fortuna", "Murmullo amargo", "Murmullos", "Todo vale", "Sin salida"];
+
+        const addonsDatabase = {
+            "trampero": ["Mandíbulas acolchadas", "Guantes de trampero", "Grasa de oso", "Abrazadera improvisada", "Mandíbulas cerradas", "Mandíbulas alargadas", "Ladrillo de cera", "Kit de muelles", "Café molido", "Muelle secundario", "Mandíbulas oxidadas", "Herramientas de fijación", "Frasco de brea", "Bolsa de trampero", "Saco de trampero", "Resorte de tensión", "Piedra de afilar", "Muelle aceitoso", "Piedra iridiscente", "Muelle ensangrentado"],
+            "enfermera": ["Caballito de Madera", "Cuchara de Metal", "Franela a Cuadros", "Peine para Piojos Blanco", "Brazalete sin Brillo", "Cinturón Oscuro", "Recuerdo del Hombre Malo", "Reloj de Bolsillo", "Tesoro del Chico Catatónico", "Aliento Espasmódico", "Jadeo Intenso", "Respiración Atáxica", "Respiración Frágil", "Suspiro Ansioso", "Último Aliento de Campbell", "Último Aliento de Jenner", "Último Aliento de Kavanagh", "Último Aliento del Hombre Malo", "Caja de Cerillas", "Marcapáginas Arrancado"],
+            "pueblerino": ["Bombilla de Ignición Agrietada", "Botas con Casquillo", "Contrapeso", "Filtro de Aire Desechado", "Aceite de Motor Genérico", "Acelerador Engrasado", "Carcasa Térmica", "Entrada Obstruida", "Tornillo Tensor de Alta Velocidad", "Botas de Papá", "Cadenas Repugnantes", "Cadenas de Bajo Retroceso", "Mezcla de los Thompson", "Motor Destrozado", "Botas con Pinchos", "Cadenas Silenciosas", "Pantuflas Sucias", "Silenciador de Élite", "Carburador Afinado", "Grabados Iridiscentes"],
+            "deterioro": ["Compuesto Siete", "Dedalera", "Monóculo Desgastado", "Tableta de Placebo", "Bilis de la Plaga", "Espina de Úlcera", "Notas Destrozadas", "Polvo de Pústula", "Rata Deteriorada", "Compuesto Veintiuno", "Cuervo Deteriorado", "Sales de la Umbra", "Tónico de Rosas", "Vial de Adrenalina", "Anillo del Alquimista", "Diario de Vigo", "Piedra de Invocación", "Químico del Alma", "Compuesto Treinta y Tres", "Etiqueta Iridiscente del Deterioro"],
+            "espiritu": ["Amuleto de Shiawase", "Grulla de Origami", "Peine de Bambú Excepcional", "Zōri", "Bonsái de Enebro", "Cinta Blanca", "Gorra Deportiva Embarrada", "Reloj Roto de Rin", "Talismán de Kaiun", "Flauta Oxidada", "Lentes de Madre", "Senko Hanabi", "Tsuba de Katana", "Uchiwa", "Amuleto de Yakuyoke", "Flor de Cerezo Seca", "Furin", "Saya de Wakizashi", "Anillo de Madre a Hija", "Taza de Té Kintsugi"],
+            "singularidad": ["Agua Pesada", "Herramienta de Diagnóstico (Reparación)", "Llave de Seguridad Rota", "Lodo Nutritivo", "Brazo de Androide", "Gel Criogénico", "Guante de Béisbol Infantil", "Restos Cremados", "Sensor Ultrasónico", "Aerosol de Hiperconsciencia", "Cables de Alta Tensión", "Gel para Nanomáquina", "Generador de Hologramas", "Tanque de Oxígeno Vacío", "Fibras de Plantas Foráneas", "Foto de la Familia Soma", "Herramienta de Diagnóstico (Construcción)", "Manifiesto de la Tripulación", "Formulario de Requerimientos Denegado", "Fragmento de Cristal Iridiscente"],
+            "krasue": ["Gragea Pegajosa", "Primer Libreto", "Ratón Desafortunado", "Tiara Rota", "Metrónomo Defectuoso", "Ojo de Cerdo", "Partitura Arrugada", "Parásito Retorciéndose", "Trozo de Malai", "Binoculares para Teatro", "Cuchillo Desafilado", "Mano de Janjira", "Pañuelo Salpicado", "Periódico Enmarcado", "Cerdo Podrido", "Cetro de Reina", "Elixir Misterioso", "Restos de Lorenza", "Bata Desgarrada", "Cabeza de Gallina"],
+            "ghoul": ["Cartera de Kaneki", "Delantal de Anteiku", "El Huevo de la Cabra Negra", "Taiyaki", "Auriculares de Hide", "Bolso de Kaneki", "Cadena Rota", "Paraguas de Hinami", "Pañuelo Ensangrentado", "Corbata de Amon", "Flor del Infierno", "Guante de Mado", "Lentes de Rize", "Túnica de Árbol Aogiri", "Aparato de Tortura", "Café Recién Preparado", "Ciempiés Pelirrojo", "Tarjeta de Identificación de CCG", "Máscara de Yamori", "Parche de Ojo Iridiscente"],
+            "dark_lord": ["Diadema Rubí", "Equipo de la Torre del Reloj", "Garra del Cancerbero", "Sombrero de Viajero", "Billete Mágico", "Botas Aladas", "Collar de Piedra Lunar", "Cáliz de Sangre", "Medallón de Lobo Blanco", "Fuerza de Eco", "Gafas de Sol", "Muñeca Asesina", "Pluma de Sílfide", "Reloj de Bolsillo", "Cabello de Medusa", "Colmillo de Warg", "Cubo de Zoe", "Lapislázuli", "Anillo de Vlad Iridiscente", "Escudo de Alucard"],
+            "primero": ["Laberinto de cuentas", "Radio de mediados de siglo", "ID ordenado", "Mural de vidrieras", "Patín sangriento", "manecillas del reloj", "Supercom destrozada", "Cohete de muñeca destrozada", "Platina de casete rota", "Gorro de electrodo", "Certificado de defunción falsificado", "Zarcillo del cuello", "Gafas de pizza", "La cuchilla de afeitar de Víctor", "Araña viuda negra", "Patineta rota", "Collar de electrochoque", "Restos de conejo", "Pieza de ajedrez", "Chip Soteria iridiscente"],
+            "xenomorfo": ["Raciones de cereales", "Pájaro bebedor", "Ovomorfo", "El reloj de Ripley", "Las entrañas de Ash", "La gorra de Brett", "Auriculares de la tripulación", "Mapa estelar de Lambert", "varita de luz", "Casco de emergencia", "El casco de Kane", "piel mudada", "Hacha multiusos", "Diadema de Parker", "Transportín para gatos", "Arpón", "Perno de autodestrucción", "Teclado semiótico", "Sangre ácida", "Picana eléctrica improvisada para ganado"],
+            "liche": ["Bola de cristal", "Pluma de cuervo", "Diadema andrajosa", "Guante del embaucador", "Ojo de cristal", "Linterna de la Revelación", "Poción de velocidad", "Anillo de almacenamiento de hechizos", "Anillo de telequinesis", "Botas de velocidad", "Capa de la estirpe élfica", "Cuerno ornamentado", "Perla de Poder", "Personal de Withering", "Bolsa de almacenamiento", "Capa de invisibilidad", "Daga Diente de Dragón", "Túnica de los ojos", "Libro iridiscente de la oscuridad vil", "Espada Vorpal"],
+            "desconocido": ["Foto borrosa", "Globo ocular perforado", "Pata de conejo", "Intento de boceto", "Dispositivo de origen no revelado", "Última grabación conocida", "Cuaderno de teorías", "Mochila rasgada", "Mapa de la víctima", "Póster de película de serie B", "Molde de huellas", "Artículo de primera plana", "Reloj de hipnotizador", "Caja que desaparece", "Cartón de leche desechado", "Máscara casera", "Cartucho de juego poco conocido", "Frasco de suero", "Capturado por la oscuridad", "Informe OSS iridiscente"],
+            "mellizos": ["Figura de gato", "leche agria", "Uña diminuta", "Espada de juguete", "dientes de leche", "Capucha Negra Sangrienta", "Ojo de gato", "Candelabro ceremonial", "El guante de Madeleine", "La bufanda de Madeleine", "Aguja oxidada", "Lodos de alcantarillado", "Galleta rancia", "Sonajero pesado", "Gota de perfume", "Estofado del bosque", "Trompo", "Soldado de Víctor", "Colgante iridiscente", "Tela insonorizante"],
+            "traicionero": ["Cables del infierno", "Acordes de Killing Part", "Cuchillas Memento", "Bolsa de trucos", "Boa sangrienta", "Zapatos con corazón enjaulado", "Autógrafo de Ji-Woon", "Hoja de la suerte", "Tequila Moonrock", "Refresco Fizz-Spin", "Asesinato melodioso", "En el objetivo único", "Brazo desgarrador", "Te estoy esperando. Mira.", "Cortar a través de U Single", "Gemelos de diamantes", "Álbum Edge of Revival", "Cuchillas de truco", "Recopilación de Agonías de Muerte", "Tarjeta fotográfica iridiscente"],
+            "verdugo": ["Correa negra", "Anillo de cobre", "Mariposa muerta", "Anillo de plomo", "Caja de música de Cenicienta", "Cinta de vídeo olvidada", "Tela con estampado de leopardo", "Punta de lanza", "Muñeca de cera", "Pintura de Burning Man", "Pie de maniquí", "Día brumoso, restos del juicio", "Tabla del Opresor", "Fotografía de la sección Valtiel", "Libro de la Ceremonia Carmesí", "Libro de recuerdos perdidos", "Huevo de color óxido", "Huevo escarlata", "Sello iridiscente de Metatrón", "Cáliz de obsidiana"],
+            "plaga": ["Ungüento curativo", "Sello de piedra caliza", "Incienso de olíbano", "Fragmento de tablilla de oración", "Manzana bendita", "Poción emética", "Sello de hematita", "Tintura potente", "Amuleto profiláctico", "Manzana cenicienta", "Amuleto de exorcismo", "Ungüento inciensado", "Emético infectado", "Aceite para frotar", "Amuleto del devoto", "Dedo del pie amputado", "Emético vil", "Tableta de culto", "Incienso negro", "Sello iridiscente"],
+            "oni": ["Cuerda Deteriorada", "Linterna de Papel", "Sakazuki Rota", "Uña del Pie Ennegrecida", "Banda Ensangrentada", "Espada de Madera del Niño", "León de Tinta", "Maedate Pulida", "Saihai Astillado", "Coleta Arrancada", "Máscara de Oni Hecha de Madera", "Sashimono de Yamaoka", "Talismán de Kanai-Anzen", "Wakizashi Destrozada", "Casco Astillado", "Colmillo de León", "Muleta de Akito", "Tenugui Empapado de Lágrimas", "Blasón Familiar Iridiscente", "Guante Ensangrentado de Renjiro"],
+            "cerebro": ["Joya Escarabajo", "Medallón de Unicornio", "Radio de Hombro de la R.P.D.", "Zarcillo de Uroboros", "Cáliz (Oro)", "Guantes de Cuero", "Manivela Suelta", "Medallón del León", "Megáfono", "Caja Fuerte Portátil", "Dispositivo de Videoconferencia", "Hierba Roja", "Huevo (Dorado)", "Medallón de la Doncella", "Hierba Verde", "Lentes de Sol Oscuros", "Palanca de Helicóptero", "Virus Uroboros", "Foto de Laboratorio", "Frasco de Uroboros Iridiscente"],
+            "caballero": ["Bulto Áspero", "Hidromiel Saqueada", "Mapa del Reino", "Tabardo Raído", "Cabeza de Hacha de Batalla", "Carne de Caballo Seca", "Cuchilla Tratada", "Grilletes de Acero Frío", "Llamado a las Armas", "Antorcha del Puesto de Vigilancia del Pueblo", "Empuñadura Rota", "Monte Afilado", "Máscara de Hierro Lúgubre", "Pinzas de Forjador", "Acero y Pedernal", "Campanadas del Carcelero", "Cataplasma Curativa", "Martillo de Herrero", "Contrato del Caballero", "Estandarte Iridiscente de la Compañía"],
+            "cazadora": ["Mango Vendado", "Piedra Basta", "Tela Amarilla", "Toxina de Amanita", "Cabezal con Peso Adicional", "Insignia Reluciente", "Mango de Roble", "Presilla de Cuero", "Trenza de Hierba del Maná", "Babushka de Flores", "Brebaje Venenoso", "Cabezal Oxidado", "Guantes de Piel de Ciervo", "Raíz de Rosa", "Cabezal Mugroso", "Cinturón de Infantería", "Preparado Brillante", "Zorro de Madera", "Cabezal Iridiscente", "Polaina del Soldado"],
+            "adiestradora": ["Alquitrán Pegajoso", "Coco Tierno", "Hueso de Criatura", "Libro de Adiestramiento", "Cabillas", "Catalejo", "Cuerda Anudada", "Harina de Cebada", "Huachinango Ahumado", "Campana de Entrenamiento", "Carne Grasienta", "Collar de Púas", "Mapa Inacabado", "Odre", "Arnés de Cuero", "Lata de Pólvora", "Mascarón del Barco", "Punzón para Cabos", "Novela Desgarrada", "Timón Iridiscente"],
+            "good_guy": ["Bisturí Pequeño", "Caja de Muñeco Good Guys", "Luz Parpadeante", "Ojos de Muñeco", "Cuchillo de Tallado Eléctrico", "Cuerda", "Destornillador Automático", "Laca y Vela", "Taladro Eléctrico", "Almohada de Seda", "Televisor Portátil", "Vara de Medir", "Veneno para Ratas", "Zapatillas", "Bolsa de Plastic", "Navaja Recta", "Pila de Clavos", "Trozos de Espejo", "Amuleto Iridiscente", "Casco"],
+            "pesadilla": ["Bloque de Ovejas", "Camisa de Lana", "Dibujo de Niño", "Rastrillo de Jardín", "Bloque de Gato", "Boceto de Nancy", "Cuerda para Exteriores", "Prototipo de Garras", "Vestido Verde", "Bloque de Unicornio", "Cuerda", "Obra Maestra de Nancy", "Solvente de Pintura", "Vestido Azul", "Bloque Z", "Cadenas de Columpio", "Fotografía de Clase", "Frasco de Pastillas", "Brocha con Pintura Roja", "Caja Negra"],
+            "draga": ["Hábito de los Seguidores", "Mortero y Mano de Mortero", "Pastillas de Cafeína", "Tabla de Madera", "Aromatizante", "Calavera del Malpensante", "Calendario de Haddie", "Cartas Quemadas", "Teja Caída", "Almohada Destrozada", "Casco de Guerra", "Escrituras Ottomarianas", "Muñeca Rota", "Piedra de la Preocupación", "Cuchilla de Cultivo", "Llave de Bote", "Micrófono de Solapa", "Registro de Campo", "Cuchilla de Sacrificios", "Tabla de Madera Iridiscente"],
+            "demogorgon": ["Calabaza Descompuesta", "Cola de Rata", "Corazón Negro", "Hígado de Rata", "Gafas de Barb", "Membrana Pegajosa", "Tejido Viscoso", "Tripa Verde Podrida", "Tripas de Mew", "Encendedor de Latón", "Hongo Violeta", "Pulmón de Ciervo", "Soda de Once", "Vides Espinosas", "Hongo Bermellón", "Huevo Desconocido", "Resina del Otro Lado", "Silbato de Salvavidas", "Liquen Leproso", "Musgo Rojo"],
+            "arponero": ["Aceite de Serpiente", "Cadena Deteriorada", "Cinturón de Municiones Modificado", "Trapo para Pulir con Saliva", "Clavo Oxidado", "Destructor de Mandíbulas", "Hojas de Roble Venenoso", "Insignia de Alguacil", "Tabaco para Mascar", "Cartel de Wanted", "Diente de Oro de Bayshore", "Espinas de Acacia Negra", "Lata de Aceite", "Llaves del Alcaide", "Alambre de Púas", "Cadena de Prisión", "El Puro de Bayshore", "Whisky Gold Creek", "Hierro de Hellshire", "Moneda Iridiscente"],
+            "payaso": ["Botella del Grupo", "Guantes sin Dedos", "Pluma de Petirrojo", "VHS Porno", "Botella de Refresco Pegajosa", "Jarra de Solvente", "Lata de Queroseno", "Pluma de Estornino", "Tapón de Corcho Grueso", "Ampolla de Ácido Sulfúrico", "Botella de Cloroformo", "Espíritu de Hartshorn", "Frasco de Lejía", "Plantillas Malolientes", "Botella de Ginebra Barata", "Caja de Puros", "Kit de Maquillaje Estridente", "Éter de 15 Vol", "Dedo Corazón de tatuado", "Meñique de Pelirrojo"],
+            "cenobita": ["Clavo Doblado", "Grillos Alegres", "Tira de Cuero", "Vela Ardiente", "Comida Podrida", "Larvas Retorciéndose", "Rata Ensartada", "Sangre Licuada", "Televisor Titilante", "Corazón de Frank", "Pilar de Tortura", "Restos de Larry", "Sangre de Larry", "Trozo de Frank", "Alambre para Atravesar", "Diente de Parlanchín", "Dolor Original", "Lente Oscuro Grasoso", "Colmillo del Ingeniero", "Configuración de los Lamentos Iridiscente"],
+            "artista": ["Brea Espesa", "Maíz Choclo", "Obituario Vibrante", "Pinturas al Óleo", "Agonía sin Título", "Carroña Supurante", "Cuervo de Naturaleza Muerta", "Dibujo Automático", "Tela de Terciopelo", "Barra de Carbón", "Campana de Plata", "Nido con Espinas", "Qué Dolor Amor Mío", "Tinta más Oscura", "Huevo de Tinta", "Lengua Cortada", "Manos Amputadas", "Zapatos de Bebé de Matias", "Jardín de Podredumbre", "Pluma Iridiscente"],
+            "animatronico": ["Anuncio de Pedido de Help", "Menú de Restaurante", "Pizza Podrida", "Plato de Cartón Grasiento", "Cortina Rota", "Insignia de Guardia de Seguridad", "Serpentinas", "Sombrero de Fiesta", "Teléfono de Oficina", "Babero de Chica", "Cuerdas de Guitarra de Bonnie", "Dibujo de Hombre Morado", "Gancho de Foxy", "Sombrero de Freddy", "Bolsa de Botín", "Cartel de Celebración", "Panel de Acceso", "Procesador Interno", "Faz Coin", "Resto Iridiscente"],
+            "espectro": ["El Fantasma - Hollín", "El Sabueso - Hollín", "La Bestia - Hollín", "La Serpiente - Hollín", "Cacería Rápida - Barro", "Guerrero Ciego - Barro", "Proyección - Barro", "Vendaval - Barro", "Badajo de Hueso", "Cacería Rápida - Blanco", "Danza Sombría - Blanco", "Guerrero Ciego - Blanco", "Proyección - Blanco", "Vendaval - Blanco", "Cacería Rápida - Sangre", "Danza Sombría - Sangre", "Lo Veo Todo - Sangre", "Vendaval - Sangre", "Lo Veo Todo - Espíritu", "Badajo Trenzado"],
+            "comerciante": ["Actualización de Alta Corriente", "Adi Valente 1", "Altavoz Ultrasónico", "Proyecto de Alta Potencia", "Altavoces Escopetas", "Luz Adaptable", "Micrófono a Distancia Estéreo", "Modo Batería Baja", "Supercarga", "Actualización Infrarroja", "Generador de Ruido Marrón", "Procesador de Puntería Vital", "Tornillo Flojo", "Vidrio Molido", "Lector Geográfico", "Luces Estroboscópicas Aleatorias", "Predicción de Movimiento Avanzado", "Prototipo de Rotor", "Baterías Agotadas", "Manuscrito Inédito Iridiscente"],
+            "cerda": ["Correas de Combate", "Cuchillas Entrecruzadas", "Expediente Médico de John", "Jeringuilla Rota", "Aceite de Taller", "Alambre de Espinas", "Cuchillas Multiuso", "Máscara Facial", "Última Voluntad", "Accesorios Oxidados", "Bolsa de Engranajes", "Conjunto de Reglas No.2", "Plano con Anotaciones de Jigsaw", "Toxina de Liberación Lenta", "Boceto de Jigsaw", "Caja de Engranajes", "Secreto de Amanda", "Temporizador Manipulado", "Carta de Amanda", "Cinta de Video"],
+            "onryo": ["Cartel de la Cabaña", "Copia de Cinta de Video", "Espejo de Madre", "Periódico Viejo", "Mata de Pelo", "Pañuelo Mojado con Agua de Mar", "Piedra del Pozo", "Red de Pesca de Yoichi", "Reloj de Reiko", "Agua de Pozo", "Dibujo del Aro", "Molinete Deteriorado", "Peine de Mamá", "Uñas Sangrientas", "Consola de Edición de Cintas", "Fotografía Distorsionada", "Teléfono", "Videocasetera", "Cinta de Video Iridiscente", "Control Remoto"],
+            "nemesis": ["Intestino de Brian", "Jeringa Dañada", "Manual de Combate de S.T.A.R.S.", "Pulseras para Visitantes", "Corazón de Zombie", "Inyector de Adrenalina", "Ojo de Mikhail", "Pulsera de Administrador", "Sangre de Marvin", "Inyector de Serotonina", "Lengua de Licker", "Lianas de la Planta 43", "Muestra del Virus-T", "Tyrant Ensangrentado", "Cinta de Tinta Vacía", "Moneda de Recuperación Rota", "Parásito Ne-alpha", "Sándwich de Jill", "Insignia de S.T.A.R.S. Destruida", "Insignia de Umbrella Iridiscente"],
+            "myers": ["Flor de la Tumba", "Notas del Novio", "Pelo Rubio", "Pendientes Horteras", "Cepillo", "Conejo Muerto", "Fragmento de Cristal", "Joyería", "Mata de Pelo Perfumada", "Diario de Judith", "Homenaje a J. Myers", "Joyero", "Lazo", "Trozo de Espejo", "Espejo de Maquillaje", "Fragmento Espejado", "Mechón de Pelo", "Trozo de Lápida", "Espejo Rayado", "Lápida de Judith"],
+            "legion": ["Lista de Malas Acciones", "Pin de Carita Sonriente", "Pulsera de la Amistad", "Regla Rayada", "Boceto de Mural", "Casete de Julie", "Chapa de Carita Sonriente Desfigurada", "Pastillas para No Dormir", "Regla Grabada", "Casete de Joey", "Casete de Susie", "Cuadro de Bocetos Robado", "Lentes de Sol a la Moda", "Pin de La Legión", "Casete de Frank", "Cuchilla Asquerosa", "Estudio de Heridas de Arma Blanca", "Mejores Amigos por Siempre", "Botón Iridiscente", "Casete Humeante"],
+            "ghostface": ["Filadelfia", "Caja de Fósforos del Walleye's", "Colonia Barata", "Recortes de Titular", "Agenda de Contactos de Olsen", "Correas", "Diario de Olsen", "Mapa con Anotaciones", "Teleobjetivo", "Bolígrafo Mordisqueado", "Cartera de Olsen", "Clip de Cinturón para Cuchillo", "Funda de Cuero para Cuchillo", "Perfume Duradero", "Carnet de Conducir", "Funda de Cuchillo para Pernera", "Lente de Visión Nocturna", "Rutina Detallada de la Víctima", "Ghost Face Capturado en Video", "Cámara de Seguridad Exterior"],
+            "doctor": ["Calma - Clase I", "Orden - Clase I", "Caballo de Arce", "Electrodo Mohoso", "Calma - Clase II", "Disciplina - Clase II", "Orden - Clase II", "Restricción - Clase II", "Electrodo Pulido", "Disciplina - Clase III", "Restricción - Clase III", "Cinta Desechada", "Cinta de Entrevista", "Electrodo de Alto Estímulo", "Calma - Notas de Carter", "Disciplina - Notas de Carter", "Orden - Notas de Carter", "Restricción - Notas de Carter", "Reina Iridiscente", "Rey Iridiscente"],
+            "bruja": ["Agua de Pantano", "Collar de Cuerda", "Cáscara de Huevo Triturada", "Fango con Moscas Muertas", "Agua Ensangrentada", "Alas de Libélula", "Collar de Ciprés", "Flores de Sauce Blanco", "Media Cáscara de Huevo", "Cigarra Seca", "Collar de Orquídeas de Pantano", "Fango Ensangrentado", "Guirnalda de Sauce", "Huevo de Tortuga Roto", "Cadenas Oxidadas", "Corazón de la Abuela", "Mano con Cicatrices", "Oreja Desfigurada", "Jirón Verde", "Zapato Empapado"],
+            "canibal": ["Aceite Vegetal", "Bujía", "Lima para Motosierra", "Limitador de Velocidad", "Arañazos de Cuchillo", "Bombilla de Combustible", "Chile", "Espada Larga", "Silenciador Casero", "Cadena Horripilante", "Cadenas Repugnantes", "La Grasa", "Las Marcas de la Bestia", "Lubricante Común", "Bastidor Ligero", "Cadena Oxidada", "Chile de Primera", "Medidor de Profundidad", "Carne Iridiscente", "Guía del Carburador"]
+        };
+
+        const bannedAddons = ["Anillo de Madre", "Escudo de Alucard", "Anillo Vald Iridiscente", "Colmillo de Warg", "Cubo de Zoe", "Cabello de Medusa", "Máscara de Yamori", "Aparato de tortura", "Ciempiés Pelirrojo", "Tarjeta de identificación de la CCG", "Gafas de Rize", "Cabeza de pollo", "Vestido desgarrado", "Prismáticos de Teatro", "Ojo de Cerdo", "Formulario de requerimiento denegado", "Fragmento de cristal iridiscente"];
+
+        let currentAddonInputId = null;
+
+        function init() {
+            const sel = document.getElementById('killer-select');
+            for(let t=1; t<=5; t++) {
+                let group = document.createElement('optgroup'); group.label = `TIER ${t}`;
+                Object.keys(killerData).forEach(id => { if(killerData[id].tier === t) { let opt = document.createElement('option'); opt.value = id; opt.textContent = killerData[id].name; group.appendChild(opt); } });
+                sel.appendChild(group);
+            }
+        }
+
+        function openAddonMenu(inputId) {
+            const killerId = document.getElementById('killer-select').value;
+            if (!killerId) { alert("SELECCIONA UN ASESINO PRIMERO"); return; }
+            currentAddonInputId = inputId;
+            const grid = document.getElementById('addon-grid-content');
+            grid.innerHTML = "";
+            const addons = addonsDatabase[killerId] || [];
+            addons.forEach(addon => {
+                const item = document.createElement('div');
+                item.className = "addon-item";
+                const imgPath = `img/addons/${cleanPath(addon)}.png`;
+                item.innerHTML = `<img src="${imgPath}" onerror="this.src='img/placeholder.png'"><span>${addon}</span>`;
+                item.onclick = () => selectAddon(addon);
+                grid.appendChild(item);
+            });
+            document.getElementById('overlay').style.display = 'block';
+            document.getElementById('addon-menu').style.display = 'block';
+        }
+
+        function closeAddonMenu() {
+            document.getElementById('overlay').style.display = 'none';
+            document.getElementById('addon-menu').style.display = 'none';
+        }
+
+        function selectAddon(addonName) {
+            const input = document.getElementById(currentAddonInputId);
+            input.value = addonName;
+            closeAddonMenu();
+            validate();
+        }
+
+        function updateKillerPortrait() {
+            const id = document.getElementById('killer-select').value;
+            const img = document.getElementById('killer-img');
+            const placeholder = document.getElementById('killer-text');
+            if (id) {
+                let fileName = id;
+                if (id === 'dark_lord') fileName = 'dracula';
+                if (id === 'nemesis') fileName = 'port_nemesis';
+                img.src = `img/${fileName}.png`;
+                img.style.display = 'block';
+                placeholder.style.display = 'none';
+                img.onerror = () => { img.src = 'img/placeholder_killer.png'; };
+            } else { img.src = ''; img.style.display = 'none'; placeholder.style.display = 'block'; }
+            document.getElementById('a1').value = ""; document.getElementById('a2').value = "";
+            validate();
+        }
+
+        function cleanPath(str) {
+            if (str.toLowerCase().trim() === "hijo de la luz") return "Lightborn";
+            return str.normalize("NFD")
+                      .replace(/[\u0300-\u036f]/g, "")
+                      .replace(/[()]/g, "_")
+                      .replace(/[^a-zA-Z0-9]/g, "_")
+                      .replace(/_{2,}/g, "_")
+                      .replace(/^_|_$/g, "");
+        }
+
+        function showResults(input, type) {
+            const val = input.value.toLowerCase();
+            const resDiv = document.getElementById('res-' + input.id);
+            resDiv.innerHTML = "";
+            if (val.length < 1) { resDiv.style.display = "none"; return; }
+            const filtered = allGamePerks.filter(p => p.toLowerCase().includes(val));
+            if (filtered.length > 0) {
+                resDiv.style.display = "block";
+                filtered.forEach(p => {
+                    const item = document.createElement('div'); item.className = "result-item";
+                    item.innerHTML = `<img src="img/${cleanPath(p)}.png" class="result-img" onerror="this.src='img/placeholder.png'"> <span class="text-xs font-bold uppercase text-white">${p}</span>`;
+                    item.onclick = () => { input.value = p; resDiv.style.display = "none"; validate(); };
+                    resDiv.appendChild(item);
+                });
+            } else { resDiv.style.display = "none"; }
+        }
+
+        function validate() {
+            const killerId = document.getElementById('killer-select').value;
+            const perks = [1,2,3,4].map(n => document.getElementById(`p${n}`).value.trim());
+            const perksLower = perks.map(p => p.toLowerCase().trim());
+            const addons = [1,2].map(n => document.getElementById(`a${n}`).value.trim());
+            
+            perks.forEach((p, index) => {
+                const img = document.getElementById(`img-p${index+1}`);
+                if(p !== "") { img.src = "img/" + cleanPath(p) + ".png"; img.classList.remove('icon-empty'); img.onerror = () => { img.src = "img/placeholder.png"; }; }
+                else { img.src = ""; img.classList.add('icon-empty'); }
+            });
+
+            addons.forEach((a, i) => {
+                const img = document.getElementById(`img-a${i+1}`);
+                if(a !== "") { img.src = "img/addons/" + cleanPath(a) + ".png"; img.classList.remove('icon-empty'); img.onerror = () => { img.src = "img/placeholder.png"; }; }
+                else { img.src = ""; img.classList.add('icon-empty'); }
+            });
+
+            let errors = [];
+            if (killerId) {
+                const tier = killerData[killerId].tier;
+                const specificBans = killerSpecificBans[killerId] || tierBanned[tier] || [];
+                perks.forEach(p => { if (p) {
+                    const pLow = p.toLowerCase().trim();
+                    if (globalBanned.some(gb => gb.toLowerCase().trim() === pLow)) errors.push(`BANEO GLOBAL: ${p.toUpperCase()}`);
+                    if (specificBans.some(sb => sb.toLowerCase().trim() === pLow)) errors.push(`RESTRICCIÓN TIER ${tier}/PERSONAJE: ${p.toUpperCase()}`);
+                }});
+                addons.forEach(a => { if (a && bannedAddons.some(ba => ba.toLowerCase() === a.toLowerCase())) errors.push(`ACCESORIO BANEADO: ${a.toUpperCase()}`); });
+                forbiddenCombos.forEach(c => { if(c.perks.every(cp => perksLower.includes(cp.toLowerCase().trim()))) errors.push(`COMBO GLOBAL: ${c.name}`); });
+                (tierForbiddenCombos[tier] || []).forEach(c => { if(c.perks.every(cp => perksLower.includes(cp.toLowerCase().trim()))) errors.push(`COMBO TIER ${tier}: ${c.name}`); });
+                (killerSpecificCombos[killerId] || []).forEach(c => { if(c.perks.every(cp => perksLower.includes(cp.toLowerCase().trim()))) errors.push(`COMBO ESPECÍFICO: ${c.name}`); });
+            } else if (perks.some(p => p !== "") || addons.some(a => a !== "")) { errors.push("SELECCIONA UN ASESINO PRIMERO"); }
+            updateUI(errors);
+        }
+
+        function updateUI(errors) {
+            const badge = document.getElementById('badge'); const list = document.getElementById('error-list'); const msg = document.getElementById('msg');
+            list.innerHTML = "";
+            if(errors.length > 0) {
+                badge.innerText = "ILEGAL"; badge.className = "inline-block px-4 py-1 rounded-full text-[9px] font-black uppercase bg-red-900 text-white mb-2";
+                msg.innerText = "Infracciones detectadas:";
+                errors.forEach(e => { list.innerHTML += `<div class="text-red-500 text-[10px] font-black italic uppercase">• ${e}</div>`; });
+            } else { badge.innerText = "LEGAL"; badge.className = "inline-block px-4 py-1 rounded-full text-[9px] font-black uppercase bg-green-900 text-white mb-2"; msg.innerText = "Configuración válida."; }
+        }
+
+        function resetBuild() {
+            document.getElementById('killer-select').value = ""; updateKillerPortrait();
+            [1,2,3,4].forEach(n => { document.getElementById('p' + n).value = ""; const img = document.getElementById('img-p' + n); img.src = ""; img.classList.add('icon-empty'); });
+            [1,2].forEach(n => { document.getElementById('a' + n).value = ""; const img = document.getElementById('img-a' + n); img.src = ""; img.classList.add('icon-empty'); });
+            validate();
+        }
+
+        document.addEventListener('click', (e) => { if (!e.target.className.includes('input-on3')) { document.querySelectorAll('.dropdown-results').forEach(d => d.style.display = "none"); } });
+        init();
+    </script>
+</body>
+</html>
